@@ -43,14 +43,24 @@ async def start_track(track_id:int, user:dict, track_meta:dict | None, \
             return await send_message(user, e)
 
         track_meta = await get_track_metadata(track_id, track_data, user['r_id'])
+        
+        # None ဖြစ်နေပါက အလွတ် သို့မဟုတ် Unknown ဟု ပြောင်းလဲရန် စစ်ဆေးခြင်း
+        track_meta['provider'] = track_meta.get('provider') or "Tidal"
         track_meta['albumartist'] = track_meta.get('albumartist') or "Unknown Artist"
         track_meta['artist'] = track_meta.get('artist') or "Unknown Artist"
         track_meta['album'] = track_meta.get('album') or "Unknown Album"
         track_meta['title'] = track_meta.get('title') or "Unknown Track"
+        
         filepath = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{track_meta['provider']}/{track_meta['albumartist']}/{track_meta['album']}"
         # mostly session and quality will not be present
         session, quality = await get_stream_session(track_data)
     else:
+        # Concurrent tasks များမှ တိုက်ရိုက် လာသော track_meta များအတွက် Safe Checks လုပ်ပေးခြင်း
+        track_meta['provider'] = track_meta.get('provider') or "Tidal"
+        track_meta['albumartist'] = track_meta.get('albumartist') or "Unknown Artist"
+        track_meta['artist'] = track_meta.get('artist') or "Unknown Artist"
+        track_meta['album'] = track_meta.get('album') or "Unknown Album"
+        track_meta['title'] = track_meta.get('title') or "Unknown Track"
         filepath = basefolder
 
     try:
@@ -132,10 +142,17 @@ async def start_album(album_id:int, user:dict, upload=True, basefolder=None):
     
     album_meta = await get_album_metadata(album_id, album_data, tracks_data, user['r_id'])
 
+    # Safe Variable Assignment (Album Metadata None စစ်ခြင်း)
+    album_title = album_meta.get('title') or "Unknown Album"
+    artist_name = album_meta.get('artist') or "Unknown Artist"
+    provider_name = album_meta.get('provider') or "Tidal"
+    album_meta['title'] = album_title
+    album_meta['artist'] = artist_name
+
     if basefolder:
-        album_folder = basefolder + f"/{album_meta['title']}"
+        album_folder = basefolder + f"/{album_title}"
     else:
-        album_folder = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{album_meta['provider']}/{album_meta['artist']}/{album_meta['title']}"
+        album_folder = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{provider_name}/{artist_name}/{album_title}"
     
     album_folder = sanitize_filepath(album_folder)
     album_meta['folderpath'] = album_folder
@@ -160,7 +177,7 @@ async def start_album(album_id:int, user:dict, upload=True, basefolder=None):
         'text': lang.s.DOWNLOAD_PROGRESS,
         'msg': user['bot_msg'],
         'title': album_meta['title'],
-        'type': album_meta['type']
+        'type': album_meta.get('type', 'album')
     }
     await run_concurrent_tasks(tasks, update_details)
 
@@ -178,7 +195,13 @@ async def start_album(album_id:int, user:dict, upload=True, basefolder=None):
 async def start_artist(artist_id:int, user:dict):
     artist_data = await tidalapi.get_artist(artist_id)
     artist_meta = await get_artist_metadata(artist_data, user['r_id'])
-    artist_meta['folderpath'] = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{artist_meta['provider']}/{artist_meta['artist']}"
+    
+    # Safe Variable Assignment (Artist Metadata None စစ်ခြင်း)
+    artist_name = artist_meta.get('artist') or "Unknown Artist"
+    provider_name = artist_meta.get('provider') or "Tidal"
+    artist_meta['artist'] = artist_name
+
+    artist_meta['folderpath'] = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{provider_name}/{artist_name}"
     artist_meta['folderpath'] = sanitize_filepath(artist_meta['folderpath'])
     
     try:
