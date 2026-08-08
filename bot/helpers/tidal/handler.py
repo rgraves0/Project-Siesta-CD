@@ -43,6 +43,10 @@ async def start_track(track_id:int, user:dict, track_meta:dict | None, \
             return await send_message(user, e)
 
         track_meta = await get_track_metadata(track_id, track_data, user['r_id'])
+        track_meta['albumartist'] = track_meta.get('albumartist') or "Unknown Artist"
+        track_meta['artist'] = track_meta.get('artist') or "Unknown Artist"
+        track_meta['album'] = track_meta.get('album') or "Unknown Album"
+        track_meta['title'] = track_meta.get('title') or "Unknown Track"
         filepath = f"{Config.DOWNLOAD_BASE_DIR}/{user['r_id']}/{track_meta['provider']}/{track_meta['albumartist']}/{track_meta['album']}"
         # mostly session and quality will not be present
         session, quality = await get_stream_session(track_data)
