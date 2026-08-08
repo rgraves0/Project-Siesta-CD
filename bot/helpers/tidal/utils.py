@@ -129,8 +129,9 @@ def parse_mpd(xml: bytes) -> list:
 
                     # Create list with $Number$ indices
                     seg_num_list = list(range(start_number, len(seg_time_list) + start_number))
-                    # Replace $Number$ with all the seg_num_list indices
-                    track_urls += [seg_template.get('media').replace('$Number$', str(n)) for n in seg_num_list]
+                    # Replace $Number$ with all the seg_num_list indices (Safe format)
+                    media_pattern = seg_template.get('media') or ""
+                    track_urls += [media_pattern.replace('$Number$', str(n)) for n in seg_num_list]
 
                 tracks.append(track_urls)
 
