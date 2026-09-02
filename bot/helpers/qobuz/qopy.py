@@ -1,3 +1,5 @@
+# FILE: bot/helpers/qobuz/qopy.py
+# From vitiko98/qobuz-dl
 import time
 import hashlib
 import aiohttp
@@ -14,17 +16,19 @@ class QoClient:
         self.id = None
         self.secrets = []
         self.session = None
-        self.ratelimiter = aiolimiter.AsyncLimiter(30, 60)
+        self.ratelimit = aiolimiter.AsyncLimiter(30, 60)
         self.base = "https://www.qobuz.com/api.json/0.2/"
         self.sec = None
         self.quality = 6
         
+        # --- အသစ်ထည့်ရမည့် code (Config ကို စစ်ဆေးခြင်း) ---
         if Config.QOBUZ_APP_ID:
             self.id = Config.QOBUZ_APP_ID
             if Config.QOBUZ_APP_SECRET:
                 self.secrets = [Config.QOBUZ_APP_SECRET] 
             else:
                 self.secrets = []
+        # ---------------------------------------------------
 
     async def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
@@ -68,6 +72,7 @@ class QoClient:
             }
         elif epoint == "favorite/getUserFavorites":
             unix = time.time()
+            # r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
             r_sig = "favoritegetUserFavorites" + str(unix) + kwargs["sec"]
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
@@ -100,7 +105,7 @@ class QoClient:
         return await self.session_call(epoint, params)
 
     async def session_call(self, epoint, params):
-        async with self.ratelimiter:
+        async with self.ratelimit:
             async with self.session.get(self.base + epoint, params=params) as r:
                 if epoint == "user/login":
                     if r.status == 401:
@@ -115,6 +120,7 @@ class QoClient:
                 ):
                     raise Exception("QOBUZ : Invalid App Secret. Please recheck your credentials.... Disabling QOBUZ")
                 return await r.json()
+
 
     async def multi_meta(self, epoint, key, id, type):
         total = 1
@@ -132,18 +138,18 @@ class QoClient:
                 total -= 500
             offset += 500
 
+
     async def auth(self):
-        q_user = str(Config.QOBUZ_USER).strip('"\'') if Config.QOBUZ_USER else None
-        q_token = str(Config.QOBUZ_TOKEN).strip('"\'') if Config.QOBUZ_TOKEN else None
-
-        if not q_token or not q_user:
-            raise Exception("QOBUZ : QOBUZ_USER and QOBUZ_TOKEN must be provided.")
-
-        usr_info = await self.api_call(
-            "user/login", 
-            userid=q_user,
-            usertoken=q_token)
-
+        if Config.QOBUZ_EMAIL:
+            usr_info = await self.api_call(
+                "user/login", 
+                email=Config.QOBUZ_EMAIL, 
+                pwd=Config.QOBUZ_PASSWORD)
+        else:
+            usr_info = await self.api_call(
+                "user/login", 
+                userid=Config.QOBUZ_USER,
+                usertoken=Config.QOBUZ_TOKEN)
         if not usr_info:
             return
         if not usr_info["user"]["credential"]["parameters"]:
@@ -165,13 +171,15 @@ class QoClient:
         self.id = str(bundle.get_app_id())
         self.secrets = [
             secret for secret in bundle.get_secrets().values() if secret
-        ]
+        ]  # avoid empty fields
 
     async def login(self):
+        # Config မှာ ID ရှိနေရင် Bundle ကို မလိုတော့ပါ
         if not self.id:
             self.get_tokens()
             
         self.session = aiohttp.ClientSession()
+        #self.rate_limiter = self.get_rate_limiter(30)
         self.session.headers.update(
             {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
@@ -183,6 +191,7 @@ class QoClient:
 
     async def cfg_setup(self):
         for secret in self.secrets:
+            # Falsy secrets
             if not secret:
                 continue
             if await self.test_secret(secret):
@@ -190,6 +199,10 @@ class QoClient:
                 break
         if self.sec is None:
             raise Exception("QOBUZ : Can't find any valid app secret")
+
+
+
+
 
     async def get_track_url(self, id):
             fmt_id = self.quality
@@ -206,6 +219,7 @@ class QoClient:
         async for data in self.multi_meta("artist/get", "albums_count", id, None):
             res.append(data)
         return res
+        #return await self.multi_meta("artist/get", "albums_count", id, None)
 
     async def get_plist_meta(self, id):
         res = []
