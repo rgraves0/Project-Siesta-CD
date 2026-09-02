@@ -1,5 +1,3 @@
-# FILE: bot/helpers/qobuz/qopy.py
-# From vitiko98/qobuz-dl
 import time
 import hashlib
 import aiohttp
@@ -137,21 +135,14 @@ class QoClient:
     async def auth(self):
         q_user = str(Config.QOBUZ_USER).strip('"\'') if Config.QOBUZ_USER else None
         q_token = str(Config.QOBUZ_TOKEN).strip('"\'') if Config.QOBUZ_TOKEN else None
-        q_email = str(Config.QOBUZ_EMAIL).strip('"\'') if Config.QOBUZ_EMAIL else None
-        q_pwd = str(Config.QOBUZ_PASSWORD).strip('"\'') if Config.QOBUZ_PASSWORD else None
 
-        if q_token and q_user:
-            usr_info = await self.api_call(
-                "user/login", 
-                userid=q_user,
-                usertoken=q_token)
-        elif q_email:
-            usr_info = await self.api_call(
-                "user/login", 
-                email=q_email, 
-                pwd=q_pwd)
-        else:
-            raise Exception("QOBUZ : No valid credentials (Email or User/Token) provided.")
+        if not q_token or not q_user:
+            raise Exception("QOBUZ : QOBUZ_USER and QOBUZ_TOKEN must be provided.")
+
+        usr_info = await self.api_call(
+            "user/login", 
+            userid=q_user,
+            usertoken=q_token)
 
         if not usr_info:
             return
